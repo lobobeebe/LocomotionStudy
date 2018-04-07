@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 3d50df3a80fc0924787c3983192bcad3
+timeCreated: 1523064143
+licenseType: Free
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - BodyPhysics: {instanceID: 0}
+  - SpyCamera: {fileID: 1490099830730328, guid: c3b27923cbd0e774cb455d22f869ceb6,
+      type: 2}
+  - SpyGlass: {fileID: 1239578147267720, guid: b07721b225e6e9f41b86d1961581153a, type: 2}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
