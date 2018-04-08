@@ -1,67 +1,74 @@
 ﻿using System;
 using UnityEngine;
-using VRTK;
+using UnityStandardAssets.Characters.ThirdPerson;
 
-namespace UnityStandardAssets.SceneUtils
+public class AvatarMovement : BaseLocomotion
 {
-    public class AvatarMovement : BaseLocomotion
-    {
-        public GameObject Reticle;
-        public Characters.ThirdPerson.AICharacterControl Character;
+    public GameObject ReticlePrefab;
+    public GameObject CharacterPrefab;
+
+    private GameObject mReticle;
+    private AICharacterControl mCharacter;
         
-        protected override void OnEnable()
-        {
-            base.OnEnable();
+    protected override void OnEnable()
+    {
+        base.OnEnable();
 
-            mRightController.Activated += OnActivate;
-            mRightController.Deactivated += OnDeactivate;
-        }
+        mRightController.Activated += OnActivate;
+        mRightController.Deactivated += OnDeactivate;
 
-        public void OnActivate()
-        {
-            Transform headTransform = VRTK_DeviceFinder.HeadsetTransform();
-            Character.transform.position = headTransform.position;
-            Character.transform.rotation = headTransform.rotation;
+        mReticle = Instantiate(ReticlePrefab);
+        mReticle.SetActive(false);
 
-            Character.gameObject.SetActive(true);
-        }
+        GameObject character = Instantiate(CharacterPrefab);
+        mCharacter = character.GetComponent<AICharacterControl>();
+        character.SetActive(false);
+    }
 
-        public void OnDeactivate()
-        {
-            Character.gameObject.SetActive(false);
+    public void OnActivate()
+    {
+        mCharacter.transform.position = transform.position;
+        mCharacter.transform.rotation = transform.rotation;
 
-            Vector3 finalPosition = Character.transform.position;
+        mCharacter.gameObject.SetActive(true);
+        mReticle.SetActive(true);
+    }
+
+    public void OnDeactivate()
+    {
+        mCharacter.gameObject.SetActive(false);
+        mReticle.SetActive(false);
+
+        Vector3 finalPosition = mCharacter.transform.position;
             
-            if (mPlayArea != null)
-            {
-                mPlayArea.position = finalPosition;
-                mPlayArea.rotation = Character.transform.rotation;
-                mPlayArea.Rotate(Vector3.up, Vector3.Angle(mPlayArea.forward, VRTK_DeviceFinder.HeadsetTransform().forward));
-            }
-        }
+        transform.position = finalPosition + Vector3.up * transform.position.y;
+        transform.rotation = mCharacter.transform.rotation;
+        transform.Rotate(Vector3.up, Vector3.Angle(transform.forward, Camera.current.transform.forward));
+    }
 
-        // Update is called once per frame
-        private void FixedUpdate()
+    // Update is called once per frame
+    protected override void FixedUpdate()
+    {
+        base.FixedUpdate();
+
+        if (mRightController.mIsEngaged)
         {
-            if (mRightController.mIsActive)
+            Ray ray = new Ray(mRightController.CurrentPosition, mRightController.Forward);
+            Debug.DrawRay(mRightController.CurrentPosition, mRightController.Forward);
+
+            RaycastHit hit;
+            if (!Physics.Raycast(ray, out hit))
             {
-                Ray ray = new Ray(mRightController.CurrentPosition, mRightController.Forward);
-                Debug.DrawRay(mRightController.CurrentPosition, mRightController.Forward);
+                return;
+            }
 
-                RaycastHit hit;
-                if (!Physics.Raycast(ray, out hit))
+            if (mReticle)
+            {
+                mReticle.transform.position = hit.point;
+
+                if (mCharacter)
                 {
-                    return;
-                }
-
-                if (Reticle)
-                {
-                    Reticle.transform.position = hit.point;
-
-                    if (Character)
-                    {
-                        Character.SetTarget(Reticle.transform);
-                    }
+                    mCharacter.SetTarget(mReticle.transform);
                 }
             }
         }

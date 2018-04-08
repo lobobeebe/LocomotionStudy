@@ -1,87 +1,36 @@
 ﻿using UnityEngine;
 using System.Collections;
-using VRTK;
+using HTC.UnityPlugin.Vive;
+using HTC.UnityPlugin.Pointer3D;
+using Valve.VR.InteractionSystem;
 
 public class BaseLocomotion : MonoBehaviour
 {
-    [Header("Control Settings")]
-
     [Tooltip("Select which button to hold to engage PullTheWorld.")]
-    public VRTK_ControllerEvents.ButtonAlias EngageButton = VRTK_ControllerEvents.ButtonAlias.TriggerPress;
+    public static ControllerButton EngageButton = ControllerButton.Trigger;
+    
+    public VivePoseTracker LeftHand;
+    public VivePoseTracker RightHand;
 
-    [Header("Speed Settings")]
-
-    [Tooltip("Lower to decrease speed, raise to increase.")]
-    public float SpeedScale = 1;
-
-    [Header("Custom Settings")]
-    [Tooltip("An optional Body Physics script to check for potential collisions in the moving direction. If any potential collision is found then the move will not take place. This can help reduce collision tunnelling.")]
-    public VRTK_BodyPhysics BodyPhysics;
-
-    protected Transform mPlayArea;
-
+    protected GameObject mHeadCamera;
     protected ControllerHelper mLeftController;
     protected ControllerHelper mRightController;
-    
+
     protected virtual void Awake()
     {
-        VRTK_SDKManager.instance.AddBehaviourToToggleOnLoadedSetupChange(this);
-        UnityEngine.XR.InputTracking.disablePositionalTracking = true;
-
-        mLeftController = new ControllerHelper();
-        mRightController = new ControllerHelper();
-    }
-    
-    protected virtual bool CanMove(VRTK_BodyPhysics givenBodyPhysics, Vector3 currentPosition, Vector3 proposedPosition)
-    {
-        if (givenBodyPhysics == null)
-        {
-            return true;
-        }
-
-        Vector3 proposedDirection = (proposedPosition - currentPosition).normalized;
-        float distance = Vector3.Distance(currentPosition, proposedPosition);
-        return !givenBodyPhysics.SweepCollision(proposedDirection, distance);
-    }
-
-    protected virtual void OnDestroy()
-    {
-        VRTK_SDKManager.instance.RemoveBehaviourToToggleOnLoadedSetupChange(this);
-    }
-
-    protected virtual void OnDisable()
-    {
-        if (mLeftController != null)
-        {
-            mLeftController.Unsubscribe(EngageButton);
-        }
-
-        if (mRightController != null)
-        {
-            mRightController.Unsubscribe(EngageButton);
-        }
-
-        mLeftController = null;
-        mRightController = null;
-        mPlayArea = null;
+        mLeftController = new ControllerHelper(LeftHand);
+        mRightController = new ControllerHelper(RightHand);
     }
 
     protected virtual void OnEnable()
     {
-        BodyPhysics = (BodyPhysics != null ? BodyPhysics : GetComponentInChildren<VRTK_BodyPhysics>());
+        mHeadCamera = GameObject.FindGameObjectWithTag("MainCamera");
+    }
 
-        mLeftController.UpdateController(VRTK_DeviceFinder.GetControllerLeftHand());
-        mRightController.UpdateController(VRTK_DeviceFinder.GetControllerRightHand());
-
-        mLeftController.Subscribe(EngageButton);
-        mRightController.Subscribe(EngageButton);
-
-        mPlayArea = VRTK_DeviceFinder.PlayAreaTransform();
-
-        if (mPlayArea == null)
-        {
-            VRTK_Logger.Error(VRTK_Logger.GetCommonMessage(VRTK_Logger.CommonMessageKeys.SDK_OBJECT_NOT_FOUND, "PlayArea", "Boundaries SDK"));
-        }
+    protected virtual void FixedUpdate()
+    {
+        mLeftController.FixedUpdate();
+        mRightController.FixedUpdate();
     }
 
     public class ControllerHelper
@@ -89,18 +38,21 @@ public class BaseLocomotion : MonoBehaviour
         public delegate void ActivationHandler();
         public ActivationHandler Activated = delegate { };
         public ActivationHandler Deactivated = delegate { };
-
-        private GameObject mControllerEventsObject;
-        private GameObject mTrackedController;
+        
+        private float mTriggerActuation = .1f;
+        
+        public VivePoseTracker mTrackedController;
         
         private Vector3 mLastPosition;
 
         public bool mIsSubscribed;
-        public bool mIsActive;
+        public bool mIsEngaged;
 
-        public ControllerHelper()
+        public ControllerHelper(VivePoseTracker tracker)
         {
-            mIsActive = false;
+            mTrackedController = tracker;
+
+            mIsEngaged = false;
             mIsSubscribed = false;
         }
 
@@ -130,26 +82,15 @@ public class BaseLocomotion : MonoBehaviour
             }
         }
 
-        public void UpdateController(GameObject controllerEventsObject)
+        public void EngageButtonPressed()
         {
-            mControllerEventsObject = controllerEventsObject;
-            mTrackedController = VRTK_DeviceFinder.GetActualController(mControllerEventsObject);
-
-            if (mTrackedController)
-            {
-                mLastPosition = mTrackedController.transform.position;
-            }
-        }
-
-        public void EngageButtonPressed(object sender, ControllerInteractionEventArgs e)
-        {
-            mIsActive = true;
+            mIsEngaged = true;
             Activated();
         }
 
-        public void EngageButtonReleased(object sender, ControllerInteractionEventArgs e)
+        public void EngageButtonReleased()
         {
-            mIsActive = false;
+            mIsEngaged = false;
             Deactivated();
         }
 
@@ -159,11 +100,9 @@ public class BaseLocomotion : MonoBehaviour
 
             if (mTrackedController != null)
             {
-                Vector3 currentPostion = mTrackedController.transform.localPosition;
-
-                if (mIsActive)
+                if (mIsEngaged)
                 {
-                    deltaMovement = mLastPosition - currentPostion;
+                    deltaMovement = mLastPosition - mTrackedController.transform.localPosition;
 
                     if (supressYAxis)
                     {
@@ -171,38 +110,26 @@ public class BaseLocomotion : MonoBehaviour
                     }
                 }
 
-                mLastPosition = currentPostion;
+                mLastPosition = mTrackedController.transform.localPosition;
             }
 
             return deltaMovement;
         }
 
-        public void Subscribe(VRTK_ControllerEvents.ButtonAlias engageButton)
+        public virtual void FixedUpdate()
         {
-            if (!mIsSubscribed && mControllerEventsObject != null)
+            if (mTrackedController && ViveInput.GetTriggerValue(mTrackedController.viveRole) > mTriggerActuation)
             {
-                VRTK_ControllerEvents controllerEvent = mControllerEventsObject.GetComponent<VRTK_ControllerEvents>();
-
-                if (controllerEvent)
+                if (!mIsEngaged)
                 {
-                    controllerEvent.SubscribeToButtonAliasEvent(engageButton, true, EngageButtonPressed);
-                    controllerEvent.SubscribeToButtonAliasEvent(engageButton, false, EngageButtonReleased);
-                    mIsSubscribed = true;
+                    EngageButtonPressed();
                 }
             }
-        }
-
-        public void Unsubscribe(VRTK_ControllerEvents.ButtonAlias engageButton)
-        {
-            if (mIsSubscribed && mControllerEventsObject != null)
+            else
             {
-                VRTK_ControllerEvents controllerEvent = mControllerEventsObject.GetComponent<VRTK_ControllerEvents>();
-
-                if (controllerEvent)
+                if (mIsEngaged)
                 {
-                    controllerEvent.UnsubscribeToButtonAliasEvent(engageButton, true, EngageButtonPressed);
-                    controllerEvent.UnsubscribeToButtonAliasEvent(engageButton, false, EngageButtonReleased);
-                    mIsSubscribed = false;
+                    EngageButtonReleased();
                 }
             }
         }

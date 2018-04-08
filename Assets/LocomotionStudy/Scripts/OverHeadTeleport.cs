@@ -1,86 +1,86 @@
-﻿using System.Collections;
+﻿using HTC.UnityPlugin.StereoRendering;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using VRTK;
 
 public class OverHeadTeleport : BaseLocomotion
 {
-    public GameObject SpyCamera;
     public GameObject SpyGlass;
     public GameObject Reticle;
 
     public Vector3 SpyGlassOffset;
     public Vector3 SpyGlassRotationOffset;
-
-    private GameObject mSpyCamera;
+    
     private GameObject mSpyGlass;
     private GameObject mReticle;
-
-    private Vector3 mSelectedLocation;
-
+    private GameObject mSpyCameraLocation;
+    
     protected override void OnEnable()
     {
         base.OnEnable();
 
+        // Controller Subscriptions
         mLeftController.Activated += OnTeleport;
 
         mRightController.Activated += OnActivate;
         mRightController.Deactivated += OnDeactivate;
 
-        mSpyCamera = Instantiate(SpyCamera);
-        mSpyGlass = Instantiate(SpyGlass);
-        mReticle = Instantiate(Reticle);
+        // Spy Camera Location
+        mSpyCameraLocation = new GameObject("Spy Camera Location");
+        mSpyCameraLocation.transform.parent = null;
 
-        mSpyCamera.SetActive(false);
+        // Spy Glass
+        mSpyGlass = Instantiate(SpyGlass, mLeftController.mTrackedController.transform);
+        mSpyGlass.transform.localPosition = SpyGlassOffset;
+        mSpyGlass.transform.localRotation = Quaternion.Euler(SpyGlassRotationOffset);
+
+        StereoRenderer renderer = mSpyGlass.GetComponent<StereoRenderer>();
+        renderer.anchorTransform = mSpyCameraLocation.transform;
+
         mSpyGlass.SetActive(false);
-        mReticle.SetActive(false);
 
-        mSelectedLocation = Vector3.zero;
+        // Reticle
+        mReticle = Instantiate(Reticle);
+        mReticle.SetActive(false);
     }
 
-    protected override void OnDisable()
+    protected void OnDisable()
     {
-        base.OnDisable();
-
-        mSpyCamera = null;
         mSpyGlass = null;
+        mReticle = null;
     }
 
     public void OnTeleport()
     {
-        if (mSelectedLocation != Vector3.zero)
+        if (mReticle.activeInHierarchy)
         {
-            mPlayArea.transform.position = mSelectedLocation;
+            transform.position = mReticle.transform.position;
 
             // Fake the Right Controller being released
-            mRightController.EngageButtonReleased(null, new ControllerInteractionEventArgs());
+            mRightController.EngageButtonReleased(); // ??
 
-            // Reset the selected location
-            mSelectedLocation = Vector3.zero;
-
-            // Turn off the SpyCamera/Glass
-            mSpyCamera.SetActive(false);
+            // Turn off the SpyGlass
             mSpyGlass.SetActive(false);
+            mReticle.SetActive(false);
         }
     }
 
     public void OnActivate()
     {
-        mSpyCamera.SetActive(true);
         mSpyGlass.SetActive(true);
-
         mReticle.SetActive(true);
     }
 
     public void OnDeactivate()
     {
-        mReticle.SetActive(false);
     }
 
     // Update is called once per frame
-    private void FixedUpdate()
+    protected override void FixedUpdate()
     {
-        if (mRightController.mIsActive)
+        base.FixedUpdate();
+
+        if (mRightController.mIsEngaged)
         {
             Ray ray = new Ray(mRightController.CurrentPosition, mRightController.Forward);
             Debug.DrawRay(mRightController.CurrentPosition, mRightController.Forward);
@@ -91,31 +91,16 @@ public class OverHeadTeleport : BaseLocomotion
                 return;
             }
 
-            mSelectedLocation = hit.point;
+            if (mSpyCameraLocation)
+            {
+                mSpyCameraLocation.transform.position = hit.point;
+                //mSpyCameraLocation.transform.rotation = mHeadCamera.transform.rotation;
+            }
 
             if (mReticle)
             {
-                mReticle.transform.position = mSelectedLocation;
+                mReticle.transform.position = hit.point;
             }
         }
-
-        if (mSelectedLocation != Vector3.zero)
-        {
-            Transform headTransform = VRTK_DeviceFinder.HeadsetTransform();
-
-            if (mSpyCamera)
-            {
-                mSpyCamera.transform.position = mSelectedLocation + Vector3.up * (headTransform.localPosition.y);
-                mSpyCamera.transform.rotation = headTransform.rotation;
-            }
-
-            if (mSpyGlass)
-            {
-                mSpyGlass.transform.rotation = Quaternion.LookRotation(mSpyGlass.transform.position - headTransform.position, Vector3.up);
-                mSpyGlass.transform.position = mLeftController.CurrentPosition + (Vector3.up * SpyGlassOffset.y) + (mSpyGlass.transform.forward * SpyGlassOffset.z);
-                mSpyGlass.transform.Rotate(SpyGlassRotationOffset);
-            }
-        }
-
     }
 }
