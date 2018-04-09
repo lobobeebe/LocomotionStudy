@@ -2,16 +2,16 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class OverHeadTeleport : BaseLocomotion
 {
-    public GameObject SpyGlass;
+    public GameObject Surface;
     public GameObject Reticle;
 
     public Vector3 SpyGlassOffset;
     public Vector3 SpyGlassRotationOffset;
     
-    private GameObject mSpyGlass;
     private GameObject mReticle;
     private GameObject mSpyCameraLocation;
     
@@ -30,44 +30,34 @@ public class OverHeadTeleport : BaseLocomotion
         mSpyCameraLocation.transform.parent = null;
 
         // Spy Glass
-        mSpyGlass = Instantiate(SpyGlass, mLeftController.mTrackedController.transform);
-        mSpyGlass.transform.localPosition = SpyGlassOffset;
-        mSpyGlass.transform.localRotation = Quaternion.Euler(SpyGlassRotationOffset);
-
-        StereoRenderer renderer = mSpyGlass.GetComponent<StereoRenderer>();
+        StereoRenderer renderer = Surface.GetComponent<StereoRenderer>();
         renderer.anchorTransform = mSpyCameraLocation.transform;
 
-        mSpyGlass.SetActive(false);
+        Surface.SetActive(false);
 
         // Reticle
         mReticle = Instantiate(Reticle);
         mReticle.SetActive(false);
     }
 
-    protected void OnDisable()
-    {
-        mSpyGlass = null;
-        mReticle = null;
-    }
-
     public void OnTeleport()
     {
-        if (mReticle.activeInHierarchy)
+        if (mReticle && mReticle.activeInHierarchy)
         {
-            transform.position = mReticle.transform.position;
+            transform.position = mSpyCameraLocation.transform.position;
 
             // Fake the Right Controller being released
             mRightController.EngageButtonReleased(); // ??
 
             // Turn off the SpyGlass
-            mSpyGlass.SetActive(false);
+            Surface.SetActive(false);
             mReticle.SetActive(false);
         }
     }
 
     public void OnActivate()
     {
-        mSpyGlass.SetActive(true);
+        Surface.SetActive(true);
         mReticle.SetActive(true);
     }
 
@@ -91,10 +81,18 @@ public class OverHeadTeleport : BaseLocomotion
                 return;
             }
 
+
+            NavMeshHit navHit;
+            bool open = NavMesh.SamplePosition(hit.point, out navHit, .1f, 1);
+
+            if (!open)
+            {
+                return;
+            }
+
             if (mSpyCameraLocation)
             {
                 mSpyCameraLocation.transform.position = hit.point;
-                //mSpyCameraLocation.transform.rotation = mHeadCamera.transform.rotation;
             }
 
             if (mReticle)
@@ -102,5 +100,10 @@ public class OverHeadTeleport : BaseLocomotion
                 mReticle.transform.position = hit.point;
             }
         }
+    }
+
+    public void OnTriggerEnter(Collider other)
+    {
+        Debug.Log("Collision");
     }
 }
