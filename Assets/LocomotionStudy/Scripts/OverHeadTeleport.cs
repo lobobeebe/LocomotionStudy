@@ -19,11 +19,8 @@ public class OverHeadTeleport : BaseLocomotion
     {
         base.OnEnable();
 
-        // Controller Subscriptions
-        mLeftController.Activated += OnTeleport;
-
+        // Controller Subscription
         mRightController.Activated += OnActivate;
-        mRightController.Deactivated += OnDeactivate;
 
         // Spy Camera Location
         mSpyCameraLocation = new GameObject("Spy Camera Location");
@@ -59,10 +56,6 @@ public class OverHeadTeleport : BaseLocomotion
     {
         Surface.SetActive(true);
         mReticle.SetActive(true);
-    }
-
-    public void OnDeactivate()
-    {
     }
 
     // Update is called once per frame
