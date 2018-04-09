@@ -6,8 +6,19 @@ public class TeleportHead : MonoBehaviour
 {
     public OverHeadTeleport TeleportScript;
 
+    private bool mCanTeleport = true;
+
     public void OnTriggerEnter(Collider other)
     {
-        TeleportScript.OnTeleport();
+        if (mCanTeleport)
+        {
+            TeleportScript.OnTeleport();
+            //mCanTeleport = false;
+        }
+    }
+
+    public void OnTriggerExit(Collider other)
+    {
+        mCanTeleport = true;
     }
 }
