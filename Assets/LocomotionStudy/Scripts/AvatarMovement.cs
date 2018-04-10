@@ -40,8 +40,8 @@ public class AvatarMovement : BaseLocomotion
         mReticle.SetActive(false);
 
         Vector3 finalPosition = mCharacter.transform.position;
-            
-        transform.position = finalPosition + Vector3.up * transform.position.y;
+
+        transform.position = finalPosition;// + Vector3.up * transform.position.y;
         transform.rotation = mCharacter.transform.rotation;
         transform.Rotate(Vector3.up, Vector3.Angle(transform.forward, Camera.current.transform.forward));
     }

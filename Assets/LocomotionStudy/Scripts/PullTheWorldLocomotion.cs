@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine.AI;
 
 /// <summary>
 /// PullTheWorldLocomotion moves the play area in the opposite direction of lateral movement of the tracked controllers.
@@ -29,6 +30,13 @@ public class PullTheWorldLocomotion : BaseLocomotion
     {
         Vector3 movement = movementVelocity;
         Vector3 finalPosition = new Vector3(movement.x + transform.position.x, transform.position.y, movement.z + transform.position.z);
-        transform.position = finalPosition;
+        
+        NavMeshHit navHit;
+        bool open = NavMesh.SamplePosition(finalPosition, out navHit, .1f, 1);
+
+        if (open)
+        {
+            transform.position = finalPosition;
+        }
     }
 }
